@@ -18,7 +18,73 @@ NVIDIA GeForce RTX 3060 12GB 2장(Dual GPU, 총 24GB VRAM) 및 48GB 시스템 RA
 
 ---
 
-## 2. 주요 수정 및 커스텀 내역
+## 2. 실제 환경 성능 실측 데이터 (듀얼 RTX 3060 벤치마크)
+
+실제 구동 환경(`2x NVIDIA GeForce RTX 3060 12GB`, `AMD Ryzen 7 5700G`, `48GB RAM`, `PCIe P2P 활성화`)에서 대규모 프롬프트(~47k 토큰) 및 코딩 에이전트 도구 호출(Tool Call) 수행 시 측정한 실측 런타임 성능 데이터입니다.
+
+### 📊 실측 성능 지표 요약
+
+| 항목 | 실측치 | 세부 분석 |
+|---|---|---|
+| **프롬프트 처리 (Prefill)** | **약 16,000 ~ 23,500 tok/s** | 약 47,000개 토큰(~47k) 프롬프트를 **단 2~3초** 만에 처리 완료 |
+| **추론 속도 (Thinking & Answering)** | **27.0 ~ 30.9 tok/s** | CoT 추론, 자연어 답변, Tool Call 생성 전반에서 초당 27~31토큰의 안정적인 생성 속도 유지 |
+| **GPU Expert 캐시 적중률** | **70.1% ~ 76.3% Hit** | 듀얼 GPU(24GB VRAM)의 분할 캐시가 활성 Expert의 70% 이상을 직접 적중하여 고속 연산 수행 |
+| **PCIe P2P 전송 비율** | **+1.3% ~ 2.1% PCIe 라우팅** | P2P 직결 통신으로 캐시 미스된 Expert도 CPU/PCIe 병목 없이 빠르게 분산 처리 |
+| **도구 호출(Tool Calling)** | **정상 수행 완료** | `bash` 쉘 호출 등 에이전트 도구 호출(`writing a tool call`) 정상 수행 확인 |
+
+### 📝 실제 런타임 로그
+
+```text
+# [턴 1] 47k 토큰 프롬프트 처리 및 툴 콜 생성 (Thinking + Answering + Bash Tool Call)
+strata  | [strata] reading the prompt: 46,961 of 46,966 tokens, 2 s so far
+strata  | [strata] thinking: 18 of max 16384 tokens, 27.1 tok/s, 3 s
+strata  | [strata] thinking: 48 of max 16384 tokens, 28.0 tok/s, 4 s
+strata  | [strata] thinking: 74 of max 16384 tokens, 27.0 tok/s, 5 s
+strata  | [strata] thinking: 99 of max 16384 tokens, 26.3 tok/s, 6 s
+strata  | [strata] thinking: 128 of max 16384 tokens, 26.8 tok/s, 7 s
+strata  | [strata] thinking: 151 of max 16384 tokens, 26.1 tok/s, 8 s
+strata  | [strata] thinking: 184 of max 16384 tokens, 27.1 tok/s, 9 s
+strata  | [strata] thinking: 214 of max 16384 tokens, 27.4 tok/s, 10 s
+strata  | [strata] thinking: 248 of max 16384 tokens, 28.0 tok/s, 11 s
+strata  | [strata] thinking: 276 of max 16384 tokens, 28.0 tok/s, 12 s
+strata  | [strata] thinking: 308 of max 16384 tokens, 28.1 tok/s, 14 s
+strata  | [strata] thinking: 347 of max 16384 tokens, 28.9 tok/s, 15 s
+strata  | [strata] answering: 382 of max 16384 tokens, 29.3 tok/s, 16 s
+strata  | [strata] answering: 412 of max 16384 tokens, 29.2 tok/s, 17 s
+strata  | [strata] writing a tool call: bash: 442 of max 16384 tokens, 29.2 tok/s, 18 s
+strata  | [strata] writing a tool call: bash: 477 of max 16384 tokens, 29.5 tok/s, 19 s
+strata  | [strata] writing a tool call: bash: 508 of max 16384 tokens, 29.5 tok/s, 20 s
+strata  | [strata] writing a tool call: bash: 544 of max 16384 tokens, 29.7 tok/s, 21 s
+strata  | [strata] writing a tool call: bash: 579 of max 16384 tokens, 30.0 tok/s, 22 s
+strata  | [strata] writing a tool call: bash: 614 of max 16384 tokens, 30.2 tok/s, 23 s
+strata  | [strata] writing a tool call: bash: 660 of max 16384 tokens, 30.8 tok/s, 24 s
+strata  | [strata] done: 690 tokens in 25 s (30.9 tok/s) (stop, cancel=False), expert cache 70.1% hit (+2.1% of the routed experts over PCIe)
+
+# [턴 2] 후속 질의 47.8k 토큰 처리 및 Thinking
+strata  | [strata] reading the prompt: 47,844 of 47,849 tokens, 3 s so far
+strata  | [strata] thinking: 15 of max 16384 tokens, 22.3 tok/s, 4 s
+strata  | [strata] thinking: 42 of max 16384 tokens, 24.5 tok/s, 5 s
+strata  | [strata] thinking: 69 of max 16384 tokens, 25.1 tok/s, 6 s
+strata  | [strata] thinking: 98 of max 16384 tokens, 25.8 tok/s, 7 s
+strata  | [strata] thinking: 131 of max 16384 tokens, 27.3 tok/s, 8 s
+strata  | [strata] thinking: 157 of max 16384 tokens, 26.9 tok/s, 9 s
+strata  | [strata] thinking: 178 of max 16384 tokens, 25.8 tok/s, 10 s
+strata  | [strata] thinking: 203 of max 16384 tokens, 25.7 tok/s, 11 s
+strata  | [strata] thinking: 236 of max 16384 tokens, 26.5 tok/s, 12 s
+strata  | [strata] thinking: 267 of max 16384 tokens, 26.9 tok/s, 13 s
+strata  | [strata] thinking: 300 of max 16384 tokens, 27.4 tok/s, 14 s
+strata  | [strata] thinking: 330 of max 16384 tokens, 27.4 tok/s, 15 s
+strata  | [strata] thinking: 364 of max 16384 tokens, 27.9 tok/s, 16 s
+strata  | [strata] thinking: 395 of max 16384 tokens, 28.1 tok/s, 18 s
+strata  | [strata] thinking: 423 of max 16384 tokens, 28.0 tok/s, 19 s
+strata  | [strata] thinking: 455 of max 16384 tokens, 28.1 tok/s, 20 s
+strata  | [strata] thinking: 489 of max 16384 tokens, 28.4 tok/s, 21 s
+strata  | [strata] done: 490 tokens in 21 s (28.4 tok/s) (disconnect, cancel=True), expert cache 76.3% hit (+1.3% of the routed experts over PCIe)
+```
+
+---
+
+## 3. 주요 수정 및 커스텀 내역
 
 본 저장소는 업스트림([Niko1221/Strata](https://github.com/Niko1221/Strata)) 기반에서 듀얼 RTX 3060 환경의 프로덕션 운영을 위해 다음과 같은 사항들이 수정 및 추가되었습니다.
 
@@ -41,7 +107,7 @@ NVIDIA GeForce RTX 3060 12GB 2장(Dual GPU, 총 24GB VRAM) 및 48GB 시스템 RA
 
 ---
 
-## 3. 설치 및 실행 방법
+## 4. 설치 및 실행 방법
 
 ### 사전 요구사항
 - NVIDIA GPU 드라이버 (CUDA 13+ 지원, Driver 580+)
@@ -93,7 +159,7 @@ docker compose restart
 
 ---
 
-## 4. API 사용 예시 (OpenAI 호환)
+## 5. API 사용 예시 (OpenAI 호환)
 
 Strata는 OpenAI 및 Anthropic 호환 API 엔드포인트를 기본 제공합니다.
 
@@ -139,7 +205,7 @@ curl http://localhost:8080/v1/chat/completions \
 
 ---
 
-## 5. 라이선스
+## 6. 라이선스
 
 - 본 저장소의 코드는 [MIT License](LICENSE)를 따릅니다.
 - 모델 가중치([Qwen3.8-Flash-Next](https://huggingface.co/Qwen/Qwen3.8-Flash-Next)) 및 양자화 가중치는 해당 배포처의 라이선스를 따릅니다.
