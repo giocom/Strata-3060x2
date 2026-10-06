@@ -1,0 +1,41 @@
+services:
+  strata:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CUDA_ARCHITECTURES: "86"
+        BUILD_VISION: "1"
+    image: strata:cuda13-sm86-vision
+    container_name: strata
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - FAMILY=${FAMILY:-qwen}
+      - MODEL=${MODEL:-IQ2_XS}
+      - CONTEXT=${CONTEXT:-131072}
+      - PARALLEL=${PARALLEL:-4}
+      - KV=${KV:-q4_0}
+      - KV_STREAMING=${KV_STREAMING:-auto}
+      - GPUS=${GPUS:-all}
+      - LAYER_SPLIT=${LAYER_SPLIT:-auto}
+      - VISION=${VISION:-yes}
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8080}
+      - API_KEY=${API_KEY:-}
+      - LOW_RAM=${LOW_RAM:-auto}
+      - STRATA_DATA=/data
+    volumes:
+      - ./data:/data
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    ipc: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
